@@ -306,9 +306,15 @@ module Fluent
 
           if @extract_kubernetes_labels && record.key?('kubernetes')
             kubernetes_labels = record['kubernetes']['labels']
-            kubernetes_labels.each_key do |l|
-              new_key = l.gsub(%r{[.\-\/]}, '_')
+            if !kubernetes_labels.nil?
+              kubernetes_labels.each_key do |l|
+		          if l.include?('gems') || l.include?('version') || l.include?('app')
+  	            new_key = l.gsub(%r{[.\-\/]}, '_').split('_').last
+		          else
+		            next
+	          	end
               chunk_labels[new_key] = kubernetes_labels[l]
+              end
             end
           end
 
@@ -341,10 +347,8 @@ module Fluent
       # iterate through each chunk and create a loki stream entry
       def chunk_to_loki(chunk)
         streams = {}
-        last_time = nil
         chunk.each do |time, record|
           # each chunk has a unique set of labels
-          last_time = time if last_time.nil?
           result = line_to_loki(record)
           chunk_labels = result[:labels]
           # initialize a new stream with the chunk_labels if it does not exist
